@@ -25,3 +25,6 @@ or directly https://zenodo.org/records/5946808
 You need to run the notebooks in the exact ordering as shown in the main folder.
 There is also more content on the folder further_content.
 After the last preprocessing step, you can delete the old .csv files and keep only the last versions in order to free disk space.
+
+# Troubleshooting - Replication of the Results
+After you completed the preprocessing, please run the notebooks  "further_content/new_pc_filtering.ipynb". It will update the pc filtering.
