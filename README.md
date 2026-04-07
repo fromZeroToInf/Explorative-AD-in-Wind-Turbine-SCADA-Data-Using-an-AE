@@ -1,5 +1,3 @@
-Explorative analysis on multi-turbine anomaly detection on Penmanshiel data set.
-
 # Installation Guide
 Option 1: 
 ```bash
