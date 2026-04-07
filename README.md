@@ -10,9 +10,9 @@ python -m pip install pdm
 python -m pdm install
 ```
 
-torch needs to be installed manually!!
+The package torch needs to be installed manually.
 
-The installation was tested on win11 and linux. 
+The installation should work on win11 and linux. 
 It may happen that on MAC OS the internal package importing is corrupted. In this case you need to adjust the imports manually -> check root folder and relative folder expressions.
 
 # Requirements
@@ -28,3 +28,4 @@ After the last preprocessing step, you can delete the old .csv files and keep on
 
 # Troubleshooting - Replication of the Results
 After you completed the preprocessing, please run the notebooks  "further_content/new_pc_filtering.ipynb". It will update the pc filtering.
+If the training results differ, you may run torch with cpu instead of gpu. It was not completely possible (at least for me) to get fully deterministic behavior on gpu, it may be possible to re-run the training couple times to get the expected results.
