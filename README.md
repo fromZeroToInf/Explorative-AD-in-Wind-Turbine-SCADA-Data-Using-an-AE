@@ -16,6 +16,6 @@ torch needs to be installed manually!!
 
 # Requirements
 Make sure you have enough disk space available. 50gb should be enough. 
-Data Set: Please visit https://github.com/sltzgs/OpenWindSCADA or directly https://zenodo.org/records/5946808
+Dataset: Please visit https://github.com/sltzgs/OpenWindSCADA or directly https://zenodo.org/records/5946808
 
 
