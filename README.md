@@ -14,6 +14,9 @@ python -m pdm install
 
 torch needs to be installed manually!!
 
+The installation was tested on win11 and linux. 
+It may happen that on MAC OS the internal package importing is corrupted. In this case you need to adjust the imports manually -> check root folder and relative folder expressions.
+
 # Requirements
 Make sure you have enough disk space available. 50gb should be enough. 
 Dataset: Please visit https://github.com/sltzgs/OpenWindSCADA or directly https://zenodo.org/records/5946808
