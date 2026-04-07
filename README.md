@@ -17,7 +17,9 @@ It may happen that on MAC OS the internal package importing is corrupted. In thi
 
 # Requirements
 Make sure you have enough disk space available. 50gb should be enough. 
-Dataset: Please visit https://github.com/sltzgs/OpenWindSCADA or directly https://zenodo.org/records/5946808
+## Dataset 
+Please visit https://github.com/sltzgs/OpenWindSCADA (recommended) 
+or directly https://zenodo.org/records/5946808
 
 # Jupyter Notebooks
 You need to run the notebooks in the exact ordering as shown in the main folder.
