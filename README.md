@@ -1,22 +1,21 @@
 Explorative analysis on multi-turbine anomaly detection on Penmanshiel data set.
 
 # Installation Guide
-option 1: 
+Option 1: 
 ```bash
 use pip install -e .
 ```
-option 2 (recommended): 
+Option 2 (recommended): 
+Creates own venv...
 ```bash
 python -m pip install pdm
 python -m pdm install
 ```
-## torch needs to be installed manually!!
 
+torch needs to be installed manually!!
 
-# TODO - install over requirements.txt or ?
--requirements.txt -> add:   python -m pip install --upgrade jupyter ipywidgets
-                            openpyxl 
-                            ipympl
+# Requirements
+Make sure you have enough disk space available. 50gb should be enough. 
+Data Set: Please visit https://github.com/sltzgs/OpenWindSCADA or directly https://zenodo.org/records/5946808
 
-pip install -e . or pdm install
 
