@@ -1,2 +1,14 @@
-# Explorative-AD-in-Wind-Turbine-SCADA-Data-Using-an-AE
-This work provides an analysis of the AE's reconstruction error response to selected synthetic anomalies in a controlled environment. In addition, an exploratory case study is performed on the open-source SCADA Penmanshiel dataset.
+# Open Wind SCADA Turbines Anomaly Detection
+Explorative analysis on multi-turbine anomaly detection on open SCADA data from a wind farm
+
+
+# Installation Guide
+
+# TODO - install over requirements.txt or ?
+-requirements.txt -> add:   python -m pip install --upgrade jupyter ipywidgets
+                            openpyxl 
+                            ipympl
+
+pip install -e . or pdm install
+
+# torch needs to be installed manually

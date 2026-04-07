@@ -1,0 +1,39 @@
+[project]
+name = "Open_Wind_SCADA_Anomaly_Detection"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Shin-Young Hur"},
+]
+dependencies = [
+    "joblib==1.4.2",
+    "matplotlib==3.10.5",
+    "numpy>=1.2.6",
+    "pandas==2.3.1",
+    "pyarrow==21.0.0",
+    "requests==2.32.4",
+    "scikit-learn==1.7.1",
+    "scipy==1.16.1",
+    "seaborn==0.13.2",
+    "tqdm==4.67.0",
+    "umap-learn>=0.5.7",
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+packages = "find:"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tools.setuptools]
+package_dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["helperfunctions*"]
