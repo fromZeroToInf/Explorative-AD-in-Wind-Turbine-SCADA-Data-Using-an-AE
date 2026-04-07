@@ -18,4 +18,7 @@ torch needs to be installed manually!!
 Make sure you have enough disk space available. 50gb should be enough. 
 Dataset: Please visit https://github.com/sltzgs/OpenWindSCADA or directly https://zenodo.org/records/5946808
 
-
+# Jupyter Notebooks
+You need to run the notebooks in the exact ordering as shown in the main folder.
+There is also more content on the folder further_content.
+After the last preprocessing step, you can delete the old .csv files and keep only the last versions in order to free disk space.
