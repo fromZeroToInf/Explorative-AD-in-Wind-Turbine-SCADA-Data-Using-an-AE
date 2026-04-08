@@ -1,3 +1,6 @@
+# Explorative Error-Based Anomaly Detection in Wind Turbine SCADA Data Using an Autoencoder
+This work explores the AE's reconstruction error response to selected synthetic anomalies in a controlled environment. In addition, for anomaly detection, the open-source SCADA Penmanshiel dataset is investigated.
+
 # Installation Guide
 Option 1: 
 ```bash
