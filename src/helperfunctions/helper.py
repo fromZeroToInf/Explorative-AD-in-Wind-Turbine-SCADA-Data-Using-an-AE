@@ -610,44 +610,6 @@ class DataTransformations:
         
         return X- fm
             
-        
-            
-            
-            
-            
-    # @staticmethod
-    # def _encodeObj(obj: Any)->Any:
-    #     if (isinstance(obj, Path)):
-    #         return {DataTransformations._PATH_TAG: obj.as_posix()}
-    #     else:
-    #         raise TypeError
-    
-    # @staticmethod
-    # def _decodeObj(obj:Dict[str, Any])-> Any:
-    #     if DataTransformations._PATH_TAG in obj:
-    #         return Path(obj[DataTransformations._PATH_TAG])
-    #     return obj
-        
-    # def _save_config(self)->None:
-    #     js = json.dumps(self.config,
-    #                     default=self._encodeObj,
-    #                     ensure_ascii=False,
-    #                     )
-    #     save_path = Path("DT_configs")
-    #     os.makedirs(save_path, exist_ok=True)
-        
-    #     fp = os.path.join(save_path, f"cfg_{self.config["version"]}.json")
-    #     if(Path(fp).exists()):
-    #         raise NameError(f"Config already exists. Try to load the config or give the config a different version: {fp}")
-        
-    #     Path(fp).write_text()(js, encoding="utf-8")
-        
-    # def _load_config(self, path:Path)-> Dict[str, Any]:
-    #     if not path.exists():
-    #         raise FileNotFoundError(f"File not found: {path}")
-    #     js = path.read_text(encoding="utf-8")
-        
-    #     return json.loads(js, object_hook=self._decodeObj)
 
 def loader_to_df_scaled(loader: DataLoader) -> pd.DataFrame:
     ds = cast(MultiCSVDataset, loader.dataset)
@@ -1016,8 +978,6 @@ def rebuild_grouped_loader(loader: DataLoader,
                                   timestamps_per_batch=batch_size,
                                   shuffle=shuffle,
                                   seed=seed)
-    
-    
     
     rng = torch.Generator()
     rng.manual_seed(seed)

@@ -298,7 +298,7 @@ def train_a_epoch(model: nn.Module,
             with ctx:
 
                 y_hat = model(x)
-                # we want to get the loss per sample.
+                # we want to get the re per sample.
                 loss_elems = loss_fn(y_hat,x)
                 loss_per_sample = loss_elems.mean(dim=1)
                 loss = loss_per_sample.mean()
@@ -622,7 +622,6 @@ def uids_to_wt_ts(
     errs = np.concatenate(elem_losses, axis=0)
     
     ds:owdl.MultiCSVDataset = loader.dataset
-    
     
     pos = np.fromiter((ds._uid_to_pos[int(uid)] for uid in uids), dtype=np.int64, count=uids.size)
     

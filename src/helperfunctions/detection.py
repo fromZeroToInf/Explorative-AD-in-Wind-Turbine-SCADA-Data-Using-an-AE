@@ -1,5 +1,4 @@
 from helperfunctions import intern_constants as ic
-from helperfunctions.helper import load_feature_order as lfo
 import pandas as pd
 from pathlib import Path
 from collections import defaultdict
@@ -426,7 +425,7 @@ class Part2:
         bin_width: float = 1.0,
         wind_col : str = "Wind speed (m/s)",
         top_n_signals: int = 10,
-        train_pc_dir: Optional[str] = None,
+        #train_pc_dir: Optional[str] = None,
         ) -> pd.DataFrame:
         
         eval_df = eval_df.copy()
@@ -476,13 +475,6 @@ class Part2:
         
         if NBM_COLS.WIND_BIN_CENTER.value not in nbm_df.columns:
             raise ValueError(f"nbm_df does not contain col {NBM_COLS.WIND_BIN_CENTER.value}")
-         
-        # train_files: list[Path] = []
-        # if train_pc_dir is not None:
-        #     train_pc_dir = Path(train_pc_dir)
-        #     train_files = sorted(train_pc_dir.glob("*.csv"))
-        #     if not train_files:
-        #         raise ValueError(f"No files found.")
             
         def _get_baseline_row(wt_id: int, sig_name:str, wind_center:float) -> pd.Series | None:
             nbm_sig = nbm_df[(nbm_df[ic.WT_ID] == wt_id) & 
@@ -1414,8 +1406,14 @@ class Part2:
         )
         
         return selected_detections, windows_df
-    
-    
+#####################################################
+# partially obsolete - post code changes    
+# Kolmogorov Test is not used, due to practical issues on theoretical assumptions
+# Ignore all preparings for Kolmogorov test
+#
+# NEW: USED METRICS: Cliff' Delta, delta mean, delta ln sigma
+# Relevant Functions: run_prewhitening_ks_pipeline(), report_total()
+#####################################################
 class ks_test:
     Agg = Literal["mean", "median"]
 
@@ -1503,25 +1501,13 @@ class ks_test:
         acf_abs = np.abs(acf)
         return np.max(acf_abs)
     
-        # cls,
-        # eval_blocks: pd.DataFrame,
-        # ) -> int:
-        # candidates = eval_blocks[eval_blocks["meets_cond"] == True]
-        # if len(candidates) > 0:
-        #     blk_size = int(candidates["block_size"].min())
-        #     return blk_size
-        # else: 
-        #     raise ValueError(f"No blocks fullfilled the condition.")
-    #####################
-    # new approach
-    #####################
     @dataclass(frozen=True)
     class ADFResult:
         test_stat: float
         p_value: float
         lag: int
         n_obs: int
-        
+    
     @classmethod
     def adf_test(cls,
                  x: np.ndarray,
@@ -1905,7 +1891,9 @@ class ks_test:
         fig.savefig(save_path, dpi=dpi)
         plt.show()
     
-        
+    ############
+    # Dirty fix
+    ###########
     @classmethod
     def run_prewhitening_ks_pipeline(cls,
         df: pd.DataFrame,

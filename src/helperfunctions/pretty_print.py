@@ -276,9 +276,7 @@ class PrettyPrint():
             
             if df_cpy.empty:
                 raise ValueError(f" No data in the selected time period ({start},{end})")
-            
 
-            
         df_out: pd.DataFrame = None
         if wt_id is not None:
             df_cpy = df_cpy.set_index(WT_ID, drop=False)
@@ -303,9 +301,6 @@ class PrettyPrint():
             )
         )
         wt_ids = list(wide.columns)
-        
-        # x_min = pd.to_datetime(wide.index.min())
-        # x_max = pd.to_datetime(wide.index.max())
         
         if ts_range is not None:
             x_min = pd.to_datetime(ts_range[0])
@@ -700,10 +695,7 @@ class PrettyPrint():
                 bbox_inches="tight"
             )
         plt.show()
-            
-        
-        
-        
+
     @staticmethod
     def print_learning_curve(
                             history: List[HistoryDict],
@@ -1742,8 +1734,7 @@ class PrettyPrint():
                 vmin=vmin,
                 vmax=vmax
             )
-        
-         
+
         ax.set_xlabel("Timestamp")
         ax.set_ylabel("Signal")
         
@@ -1772,9 +1763,6 @@ class PrettyPrint():
         num_subset = df[cols]
         corr_mat = num_subset.corr()
 
-        # div = make_axes_locatable(ax)
-        # cax = div.append_axes("right", size="40%", pad=0.08)
-
         plt.figure(figsize=figsize)
         ax = sns.heatmap(
             corr_mat,
@@ -1788,11 +1776,10 @@ class PrettyPrint():
             
         )
         plt.title(title, fontsize=18)
-
+        
         ax.tick_params(axis="x", labelsize=15)
         ax.tick_params(axis="y", labelsize=15)
-
-        #plt.xticks(rotation=45)
+        
         plt.setp(ax.get_xticklabels(), rotation=x_label_rotation, ha="right", rotation_mode="anchor")
         plt.tight_layout()
         plt.savefig(Path(ic.PATH_PRINTS / filename), dpi=300, bbox_inches="tight")

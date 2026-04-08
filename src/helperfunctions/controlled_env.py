@@ -3,11 +3,7 @@ from enum import Enum
 from helperfunctions import intern_constants as ic
 from typing import Tuple, Optional, List, Dict, TypedDict, NotRequired, Any, Union
 from helperfunctions.helper import load_feature_order
-# import json
-# import joblib
 import numpy as np
-# from sklearn.preprocessing import MinMaxScaler
-# from functools import lru_cache
 from dataclasses import dataclass
 from enum import StrEnum, auto
 import os
@@ -25,9 +21,6 @@ class AnomCategory(Enum):
 
 def _cat_enum(cat) -> AnomCategory:
     return cat if isinstance(cat, AnomCategory) else AnomCategory[str(cat)]
-
-# def _cat_name(cat) -> str:
-#     return cat.name if isinstance(cat, AnomCategory) else str(cat) 
 
 @dataclass
 class AnomalySpec:
@@ -1665,68 +1658,6 @@ class Inject_Anomalies:
 
         return df
     
-    # @classmethod
-    # def _rescale_to_0_1_space(cls,
-    #                           sig_new: np.ndarray,
-    #                           mu2: float,
-    #                           eps: float = 0.01,
-    #                           k_small: float = 1e-12,
-    #                           atol: float = 1e-12) -> np.ndarray:
-    #     """ Rescale sig_new to [0,1] such that the scaled sig_new : sig_new' is guaranteed in [eps, 1-eps].
-    #         sig_new' keeps mu2, Variance and Correlation are scaled to a factor k according to sig_new. \n
-    #         sig_new' = mu2 + k * (sig_new - mu2)
-
-    #     Args:
-    #         sig_new (np.ndarray): The constructed signal with var(sig_origin) = var(sig_new) and exp(sig_origin)=exp(sig_new) \n
-    #         mu2 (float): Mean of sig_origin \n
-    #         eps (float, optional): Tolerance within [0,1] space. Defaults to 0.01. \n
-    #         k_small (float, optional): to ensure 0 < k <= 1 \n
-    #         atol (float, optional): it might happen that (sig_new' < eps - atol) or (sig_new' > 1 - eps + atol), in this case sig_new' will be clipped to [eps, 1-eps] \n 
-    #     Returns:
-    #         np.ndarray: Rescaled sig_new'.
-    #     """
-    #     if not (eps <= mu2 <= 1.0 - eps):
-    #         raise ValueError("mu2 must lie in [eps, 1-eps]")
-        
-    #     sig_new = np.asarray(sig_new, dtype=float)
-    #     d = sig_new - mu2
-        
-    #     pos = d > 0
-        
-    #     # limit from above for positive d_i
-    #     if np.any(pos):
-    #         k_pos = (1.0 - eps - mu2) / d[pos]
-    #         k_pos = np.min( k_pos[ k_pos > 0]) if np.any(k_pos > 0) else np.inf
-        
-    #     else:
-    #         k_pos = np.inf
-        
-    #     neg = d < 0
-        
-    #     # limit from beneath for negative d_i
-    #     if np.any(neg):
-    #         k_neg = (mu2 - eps) / np.abs(d[neg])
-    #         k_neg = np.min( k_neg[ k_neg > 0]) if np.any(k_neg > 0) else np.inf
-        
-    #     else:
-    #         k_neg = np.inf # no restiction from beneath
-        
-    #     k = 0
-    #     k_up = min(1.0, k_pos, k_neg)
-        
-    #     if not np.isfinite(k_up) or k_up <= 0:
-    #         k = k_small
-        
-    #     else:
-    #         k = max(k_small, k_up)
-
-    #     sig_new_prime = mu2 + k*d
-        
-    #     if ( sig_new_prime < eps -atol).any() or (sig_new_prime > 1.0 -eps + atol).any():
-    #         sig_new_prime = np.clip(sig_new_prime, eps, 1.0 - eps)
-        
-    #     return sig_new_prime
-    
     @classmethod
     def _renorm_to_mu_sigma(cls,
                             x: np.ndarray, 
@@ -1848,22 +1779,6 @@ class Inject_Anomalies:
         
         assert signal1 in feature_cols, f"{signal1} not in feature_cols"
         assert signal2 in feature_cols, f"{signal2} not in feature_cols"
-        
-        # df_win_all = df.loc[mask_time, [ts_col, WT_ID, *feature_cols]].copy()
-        # df_win_wt = df.loc[mask, [ts_col, WT_ID, *feature_cols]].copy()
-        
-        # fm_all = cls._compute_fleet_median(df_win_all)
-        
-        # # map target wt to [0,1] idio
-        # S = cls._to_scaled_idio(
-        #     df_rows_one_wt= df_win_wt,
-        #     fm_all=fm_all,
-        #     wt_id=wt_id,
-        #     include_meta=False
-        # )
-        # #extract signals in defined window
-        # s1 = S[signal1].to_numpy(dtype=float)
-        # s2 = S[signal2].to_numpy(dtype=float)
         
         s1 = df.loc[mask, signal1].astype(float).to_numpy(copy=False)
         s2 = df.loc[mask, signal2].astype(float).to_numpy(copy=False)
@@ -1988,18 +1903,6 @@ class Inject_Anomalies:
                 
                 new_s2 = taper*s2 + (1-taper)*new_s2
         
-        # map target column back to raw data
-        # df_win_wt_new = cls._from_scaled_idio_update_one_sig(
-        #     fm_all=fm_all,
-        #     df_rows_one_wt=df_win_wt,
-        #     wt_id= wt_id,
-        #     target_col=signal2,
-        #     new_scaled_col=new_s2
-        # )
-        
-        
-        # df.loc[mask, signal2] = df_win_wt_new[signal2].to_numpy(copy=False)
-        
         df.loc[mask, signal2] = new_s2.astype(float, copy=False)
         
         return df
@@ -2050,8 +1953,6 @@ class Report:
                 sig_b = base.loc[mu_mask_b, col].astype(float).to_numpy()
                 sig_i = inj.loc[mu_mask_i, col].astype(float).to_numpy()
                 
-                #row[fr"{idx}. $\frac{{\hat\mu_{{anom}}}}{{\hat\mu_{{base}}}}$"] = (sig_i.mean() / (sig_b.mean() + eps)) if (sig_i.size and sig_b.size) else np.nan
-                #row[fr"{idx}. $\frac{{\hat\sigma_{{anom}}}}{{\hat\sigma_{{base}}}}$"] = (sig_i.std(ddof=0) / (sig_b.std(ddof=0) + eps)) if (sig_i.size and sig_b.size) else np.nan
                 row[fr"{idx}. RCM"] = (sig_i.mean() / (sig_b.mean() + eps)) if (sig_i.size and sig_b.size) else np.nan
                 row[fr"{idx}. RCSD"] = (sig_i.std(ddof=0) / (sig_b.std(ddof=0) + eps)) if (sig_i.size and sig_b.size) else np.nan
                 sigma = (sig_b.std(ddof=0) + eps) if sig_b.size else np.nan
@@ -2066,7 +1967,6 @@ class Report:
         sr_cols = [fr"{idx}. RCSD" for idx in range(1, len(anom_spans)+1)]
         sigma_b_cols = [fr"{idx}. $\hat\sigma_{{base}}$" for idx in range(1, len(anom_spans)+1)]
         mu_b_cols = [fr"{idx}. $\hat\mu_{{base}}$" for idx in range(1,len(anom_spans)+1)]
-        #cols = np.hstack( list(zip(mr_cols, sr_cols)))
 
         return df[["Signal",*mr_cols, *sr_cols]].round(3),df[["Signal", *mu_b_cols]].round(3), df[["Signal", *sigma_b_cols]].round(3), 
     

@@ -49,6 +49,7 @@ TRAIN_END = "2019-04-05 13:50:00"
 
 
 # For visualization/evaluation of losses during and after training
+# This naming is incorrect, it should be Reconstruction error (MSE or square error)
 MEAN_LOSS_PER_SAMPLE = "Mean Loss per Sample"
 RE_PREFIX ="RE_"
 SIGNAL_COL = "Signal"
@@ -81,7 +82,6 @@ PATH_HPT = PATH_PROJECT_ROOT / "src" / "hyper_parameter_tuning"
 #Seeds for Hyperparameter tuning
 HP_TUNING_DAY_SEEDS = [1542372833,67927542,2092932925,1283632383,1383562574,230829432,2023702850]
 
-#
 PATH_PART2_DETECTIONS = PATH_IMPUTED / "part2" / "detections"
 PATH_PART2_EVAL_TEST = PATH_IMPUTED / "part2" / "eval_test_set"
 PATH_PART2_RAW_TEST = PATH_IMPUTED / "part2" / "raw_test"
