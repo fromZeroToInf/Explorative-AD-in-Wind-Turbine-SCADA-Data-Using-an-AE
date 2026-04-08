@@ -30,7 +30,7 @@ After the last preprocessing step, you can delete the old .csv files and keep on
 # Notes
 In the implementation, there exist several functions and code fragments that are not used anymore (dead). 
 
-# Troubleshooting - Replication of the Results
+# Troubleshooting - Replication of Results
 - After you complete the preprocessing, you may run the notebook  "further_content/new_pc_filtering.ipynb" in case of inconsistencies in power curve filtering. It will update the power curve filtering.
 - It may be possible that the seeding for deterministic behavior on GPU processing is limited. Try to re-run the training a couple times to get the expected results. If it did not succeed, then use the device CPU.
 
