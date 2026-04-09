@@ -1,4 +1,4 @@
-# Autoencoder-based Anomaly Detection in Open Wind Turbin SCADA Datasets
+# Autoencoder-based Anomaly Detection in Open Wind Turbine SCADA Datasets
 This work explores the AE's reconstruction error response to selected synthetic anomalies in a controlled environment. In addition, for anomaly detection, the open-source SCADA Penmanshiel dataset is investigated.
 
 # Installation Guide
