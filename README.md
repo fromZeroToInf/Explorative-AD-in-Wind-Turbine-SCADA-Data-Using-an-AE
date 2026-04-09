@@ -16,7 +16,7 @@ python -m pdm install
 The package torch needs to be installed manually.
 
 The installation should work on win11 and linux. 
-It may happen that on macOS the internal package importing is corrupted. In this case you need to adjust the imports manually -> check the root folder and relative folder expressions.
+It may happen that on macOS the internal package importing is faulty. In this case you need to adjust the imports manually -> check the root folder and relative folder expressions.
 
 # Requirements
 Make sure you have enough disk space available. 50gb should be enough. 
@@ -24,9 +24,10 @@ Make sure you have enough disk space available. 50gb should be enough.
 Please visit https://github.com/sltzgs/OpenWindSCADA (recommended) 
 or directly https://zenodo.org/records/5946808
 
-Put the wind turbine data, the status logs (csv files), and the signal mapping file in the src/Penmanshiel folder.
+- Instructions for the data are in the notebook step_1_preprocessing.ipynb
+
 # Jupyter Notebooks
-You need to run the notebooks in the exact ordering as shown in the main folder.
+You need to run and the notebooks in the exact ordering as shown in the main folder.
 There is also more content in the folder further_content.
 After the last preprocessing step, you can delete the old .csv files and keep only the last versions in order to free disk space.
 
