@@ -385,6 +385,35 @@ def _worker_init(wid: int):
     np.random.seed(base)
     torch.manual_seed(base)
 
+def _determine_dataloader_settings(
+    num_workers: Optional[int],
+    pin_memory: Optional[bool],
+    device: str,
+)-> tuple[int, bool, bool]:
+    """ Choose robust settings across os and device.
+    Returns:
+        tuple[int, bool, bool]: 
+    """
+    _device = torch.device(device)
+    if num_workers is None:
+        #res_n_workers = min(8, os.cpu_count())
+        res_n_workers = os.cpu_count()
+    else: 
+        res_n_workers = int(num_workers)
+    
+    persistent_workers = res_n_workers > 0
+    
+    if pin_memory is None:
+        res_pin_memory = _device.type == "cuda" 
+    else:
+        res_pin_memory = bool(pin_memory)
+        
+    if _device.type != "cuda":
+        res_pin_memory = False
+    
+    return res_n_workers, res_pin_memory, persistent_workers
+    
+
 def build_dataloaders(
     train_csv_dir: Path,
     val_csv_dir: Path,
@@ -392,8 +421,8 @@ def build_dataloaders(
     cfg: TrainConfig,
     filter_fns: Union[DFTransformation_fn_type, Sequence[DFTransformation_fn_type], None] = None, 
     chunk_size: Optional[int] = None,
-    num_workers: int = 8,
-    pin_memory: bool = False,
+    num_workers: int = None,
+    pin_memory: bool = None,
     transformations: Union[Transform_sig, Sequence[Transform_sig], None] = None,
     *,
     min_group_size: int = 14, # penmanshiel 14 turbines
@@ -403,6 +432,14 @@ def build_dataloaders(
     Returns:
         Tuple[DataLoader,DataLoader,DataLoader]: Train-, Val-, and TestLoader
     """
+    if num_workers == None and pin_memory == None:
+        num_workers, pin_memory, persistent_workers = _determine_dataloader_settings(
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            device=cfg.device
+        )
+    
+    
     signal_cols = cfg.signal_cols
     ts_col = cfg.ts_col
     
@@ -482,7 +519,7 @@ def build_dataloaders(
             make_fm_minmax_transform(train_ds, apply_transf=True)),
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=(num_workers > 0),
+        persistent_workers=persistent_workers,
         generator=rng,
         worker_init_fn=_worker_init
     )
@@ -495,7 +532,7 @@ def build_dataloaders(
             make_fm_minmax_transform(val_ds, apply_transf=True)), # apply_transf = True -> subtract fleetmedian
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=(num_workers > 0),
+        persistent_workers=persistent_workers,
         generator=rng,
         worker_init_fn=_worker_init
     )
@@ -508,7 +545,7 @@ def build_dataloaders(
             make_fm_minmax_transform(test_ds, apply_transf=(True) )), # apply_transf = True -> subtract fleetmedian
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=(num_workers > 0),
+        persistent_workers=persistent_workers,
         generator=rng,
         worker_init_fn=_worker_init
     )
@@ -956,7 +993,9 @@ def _dict_to_groups_list(dicti: dict[int, List[int]],
 def rebuild_grouped_loader(loader: DataLoader,
                            seed:int,
                            shuffle: bool,
-                           batch_size:int
+                           batch_size:int,
+                           num_workers: Optional[int] = None,
+                           pin_memory: Optional[bool] = None
                            )-> DataLoader:
     """Used to faster reload the dataloader. This Function is only for reproducing experiments.
 
@@ -982,14 +1021,22 @@ def rebuild_grouped_loader(loader: DataLoader,
     rng = torch.Generator()
     rng.manual_seed(seed)
     
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    num_workers, pin_memory, persistent_workers = _determine_dataloader_settings(
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        device=device,
+    )
+    
+    
     return DataLoader(
         ds,
         batch_sampler=sampler,
         collate_fn=loader.collate_fn,
-        num_workers=8,
-        pin_memory=False,
-        persistent_workers=True,
-        worker_init_fn=_worker_init,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers,
+        worker_init_fn=_worker_init if num_workers > 0 else None,
         generator=rng
         
     )

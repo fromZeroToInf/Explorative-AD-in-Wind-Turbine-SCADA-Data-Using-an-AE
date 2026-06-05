@@ -6,17 +6,6 @@ from typing import List, Tuple, Optional, Literal, Dict, Any
 import numpy as np
 import os
 from enum import StrEnum
-from scipy.stats import ks_2samp
-from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.tsa.stattools import adfuller
-from statsmodels.tsa.ar_model import AutoReg
-from statsmodels.stats.diagnostic import acorr_ljungbox
-from statsmodels.graphics.tsaplots import plot_acf
-from statsmodels.distributions.empirical_distribution import ECDF
-from matplotlib.lines import Line2D
-import matplotlib.patches as mpatches
-from dataclasses import dataclass
-import matplotlib.pyplot as plt
 
 class NBM_COLS(StrEnum):
     SIG_NAME = "signal_name"
@@ -1033,8 +1022,6 @@ class Part2:
         df[ts_col] = pd.to_datetime(df[ts_col], errors="raise")
         df = df.sort_values([wt_col, ts_col])
         
-        
-        
         rolling_mean = (
             df.groupby(wt_col)[loss_col]
             .rolling(
@@ -1407,14 +1394,11 @@ class Part2:
         
         return selected_detections, windows_df
 #####################################################
-# partially obsolete - post code changes    
-# Kolmogorov Test is not used, due to practical issues on theoretical assumptions
-# Ignore all preparings for Kolmogorov test
 #
 # NEW: USED METRICS: Cliff' Delta, delta mean, delta ln sigma
-# Relevant Functions: run_prewhitening_ks_pipeline(), report_total()
+# Relevant Functions: get_statistics(), report_total()
 #####################################################
-class ks_test:
+class stats:
     Agg = Literal["mean", "median"]
 
     @classmethod
@@ -1447,30 +1431,6 @@ class ks_test:
         return pre,post
 
     @classmethod
-    def acf(cls,x: np.ndarray, k:int) -> np.ndarray:
-        """ Computes auto correlation using the biased estimator
-        Returns:
-            np.ndarray: if x is constant NaNs will be returned.
-        """
-        
-        if k <= 0:
-            return np.array([], dtype=float)
-        
-        k = min(k, x.size - 1)
-        x0 = x - np.mean(x)
-        denom = float(np.dot(x0,x0))
-        if denom == 0.0:
-            return np.full(k, np.nan, dtype=float)
-        
-        results = np.empty(k, dtype=float)
-        
-        for h in range(1,k +1):
-            # sum^(n-1)_(i=h) x0(i)*x0(i-h) -> reindexing: sum^(n-h-1)_(i=0) x0(i+h) x0(i) 
-            results[h-1] = float(np.dot(x0[h:], x0[:-h]) / denom)
-            
-        return results 
-
-    @classmethod
     def cliffs_delta(cls, pre: np.ndarray, post: np.ndarray) -> float:
         """Computes cliffs delta: P(post > pre) - P(post < pre), delta in [-1,1]
         """
@@ -1491,455 +1451,28 @@ class ks_test:
             less += int(np.sum(i < pre))
         
         return float((greater - less) / (pre.size * post.size))
-
-    @classmethod
-    def _acf_abs_max(cls, acf: np.ndarray) -> float:
-        acf = np.asarray(acf, dtype=float)
-        if acf.size == 0:
-            raise ValueError(f"acf is empty")
-        
-        acf_abs = np.abs(acf)
-        return np.max(acf_abs)
-    
-    @dataclass(frozen=True)
-    class ADFResult:
-        test_stat: float
-        p_value: float
-        lag: int
-        n_obs: int
-    
-    @classmethod
-    def adf_test(cls,
-                 x: np.ndarray,
-                 alpha: float = 0.05,
-                 regression: Literal["c", "ct", "ctt", "n"] = "c",
-                 autolag: Literal["AIC", "BIC", "t-stat", None] = "AIC",
-                 ) -> Tuple["ks_test.ADFResult", bool]:
-        """
-        Returns:
-            (result, is_stationary): is_stationary == (p_value <= alpha)
-        """
-        x = np.asarray(x, dtype=float)
-        x = x[np.isfinite(x)]
-        if x.size < 20:
-            raise ValueError(f"ADF needs more samples. n={x.size}")
-        
-        adf = adfuller(x, regression=regression, autolag=autolag)
-        res = cls.ADFResult(
-            test_stat=float(adf[0]),
-            p_value=float(adf[1]),
-            lag=int(adf[2]),
-            n_obs=int(adf[3]),
-        )
-        return res, bool(res.p_value <= float(alpha))
-    
-    @classmethod
-    def difference_until_stationary(cls,
-                                x: np.ndarray,
-                                alpha: float = 0.05,
-                                regression: Literal["c", "ct", "ctt", "n"] = "c",
-                                autolag: Literal["AIC", "BIC", "t-stat", None] = "AIC",
-                                max_d: int = 24,
-                                ) -> Dict[str, Any]:
-        """
-        Checks stationarity, if not apply differencing operator up to max_d.
-        Returns:
-            Dict[str, Any]: "x","d","adf_pre","stationary_pre","adf_post","stationary_post","adf_path","stationary_path"
-        """
-        x = np.asarray(x, dtype=float)
-        x = x[np.isfinite(x)]
-        
-        x_tmp = x
-        d_selected = 0
-        adf_path: List[ks_test.ADFResult] = []
-        stationary_path: List[bool] = []
-        for d_tmp in range(0, int(max_d) + 1):
-            adf_res, is_stationary = cls.adf_test(x_tmp, alpha=alpha, regression=regression, autolag=autolag)
-            
-            adf_path.append(adf_res)
-            stationary_path.append(bool(is_stationary))
-            
-            if is_stationary:
-                d_selected = d_tmp
-                break
-            if d_tmp == int(max_d):
-                d_selected = int(d_tmp)
-                break
-            
-            x_tmp = np.diff(x_tmp, n=1)
-            if x_tmp.size < 20:
-                raise ValueError(f" Series became too short. d={d_tmp}, n={x_tmp.size}")
-        
-        adf_pre = adf_path[0]
-        stat_pre = stationary_path[0]
-        adf_post = adf_path[-1]
-        stat_post = stationary_path[-1]
-        
-        return {
-            "x": x_tmp,
-            "d": int(d_selected),
-            "adf_pre": adf_pre,
-            "stationary_pre": bool(stat_pre),
-            "adf_post": adf_post,
-            "stationary_post": bool(stat_post),
-            "adf_path": adf_path,
-            "stationary_path": stationary_path,
-        }
-            
-    
-    @staticmethod
-    def _aicc_from_aic(aic: float, n: int, k: int) -> float:
-        """
-        AICc = AIC + 2k(k+1)/(n-k-1)
-        Returns NaN if undefined
-        """
-        
-        if (n is None) or (k is None) or (n-k-1) <=0:
-            return float("nan")
-        return float(aic + (2.0 * k * (k+1)) / (n-k-1))
-    
-    @classmethod
-    def select_ar_order_aic(
-        cls,
-        x: np.ndarray,
-        p_max: int = 24,
-        include_const: bool=True,
-    )-> pd.DataFrame:
-        """
-        Fit ARIMA (p,0,0) for p=0...p_max
-        p=0 => ARIMA(0,0,0): white noise around mean if include_const=True.
-        x is cleaned to finite values.
-        Returns:
-            pd.DataFrame: prefer, aic, aicc, n_over_k_lt_40, p, n , k, 
-        """
-        
-        x = np.asarray(x, dtype=float)
-        x = x[np.isfinite(x)]
-        if x.size < 10:
-            raise ValueError(f"x too small: n={x.size}")
-        
-        trend: Literal["c", "n"] = "c" if include_const else "n"
-        rows: List[Dict[str,Any]] = []
-        for p in range(0, int(p_max) + 1):
-            
-            try:
-                model = AutoReg(x, lags=int(p), trend=trend, old_names=False)
-                fit = model.fit()
-                
-                aic = float(fit.aic)
-                aicc = float(fit.aicc)
-                
-                n = int(fit.nobs)
-                k = int(fit.params.size)
-                
-                aicc = cls._aicc_from_aic(aic, n=n, k=k)
-                n_over_k = (n/k) if k > 0 else float("inf")
-                n_over_k_lt_40 = n_over_k < 40.0
-                
-                rows.append(
-                    {
-                        "p": int(p),
-                        "n": n,
-                        "k": k,
-                        "n_over_k_lt_40": n_over_k_lt_40,
-                        "aic": aic,
-                        "aicc": aicc,
-                    }
-                )
-            except Exception as e:
-                rows.append(
-                    {
-                        "p": int(p),
-                        "n": int(x.size),
-                        "k": np.nan,
-                        "n_over_k_lt_40": np.nan,
-                        "aic": np.nan,
-                        "aicc": np.nan,
-                    }
-                )
-        df = pd.DataFrame(rows)
-        
-        def _prefer(row: pd.Series) -> str:
-            if bool(row.get("n_over_k_lt_40", False)) and np.isfinite(row.get("aicc", np.nan)):
-                return "aicc"
-            return "aic"
-        
-        df["prefer"] = df.apply(_prefer, axis=1)
-        
-        df = df.sort_values(["aicc", "aic", "p"], ascending=[True, True, True]).reset_index(drop=True)
-        return df
-        
-    @classmethod
-    def _pick_best_p(cls,
-                     table: pd.DataFrame,
-                     ) -> int:
-        """Choose p according to prefer rule:
-            if AICc is prefered, pick the smallest.
-            if AIC  ..., pick the smallest.
-        Returns:
-            int: p
-        """
-        if "prefer" not in table.columns:
-            raise ValueError("table does not contain the column 'prefer'")
-        
-        df = table.copy()
-        df = df[np.isfinite(df["aic"].to_numpy(dtype=float))].copy()
-        if df.empty:
-            raise ValueError("No successful ARIMA (AR) fits in order_table.")
-        
-        df_aicc = df[(df["prefer"] =="aicc") & np.isfinite(df["aicc"].to_numpy(dtype=float))]
-        if not df_aicc.empty:
-            best = df_aicc.sort_values(["aicc","p"], ascending=[True, True]).iloc[0]
-            return int(best["p"])
-        
-        best = df.sort_values(["aic", "p"], ascending=[True,True]).iloc[0]
-        return int(best["p"])
-    
-    @classmethod
-    def fit_arima_ar_only(cls,
-                          x: np.ndarray,
-                          p: int,
-                          include_const: bool = True,
-                          ):
-        
-        x = np.asarray(x, dtype=float)
-        x = x[np.isfinite(x)]
-        if x.size < 20:
-            raise ValueError(f"Not enough samples. n={x.size}")
-        trend: Literal["c", "n"] = "c" if include_const else "n"
-        results = ARIMA(x, order=(int(p), 0, 0), trend=trend).fit()
-        return results
-    
-    @dataclass(frozen=True)
-    class PreWhitenResult:
-        p: int
-        phi: np.ndarray
-        intercept: float
-        resid_pre: np.ndarray
-        resid_post: np.ndarray
-    
-    @classmethod
-    def prewhitening_residuals(cls,
-                               pre: np.ndarray,
-                               post: np.ndarray,
-                               p: int,
-                               include_const: bool = True,
-                               ) -> PreWhitenResult:
-        if pre.size <= p:
-            raise ValueError(f"pre too short. len(pre)= {pre.size}")
-        if post.size == 0:
-            raise ValueError("post empty")
-        
-        trend = "c" if include_const else "n"
-        model = AutoReg(pre, lags=p, trend=trend, old_names=False)
-        res = model.fit()
-        
-        params = np.asarray(res.params, dtype=float)
-        if include_const:
-            intercept = float(params[0])
-            phi = params[1:]
-        else:
-            intercept= 0.0
-            phi = params
-            
-        resid_pre = np.asarray(res.resid, dtype=float)
-        
-        history = np.concatenate([pre[-p:], post], axis=0)
-        resid_post = np.empty(post.size, dtype=float)
-        
-        for t in range(post.size):
-            idx = t + p
-            y_hat = intercept
-            #y_hat += sum_{i=1...p} phi_i *y_{t_i}
-            # y_{t_i} is history[idx - i]
-            for i in range(1, p+1):
-                y_hat += phi[i-1] * history[idx - i]
-            resid_post[t] = history[idx] - y_hat
-        
-        return cls.PreWhitenResult(
-            p=p,
-            phi=np.asarray(phi,dtype=float),
-            intercept=intercept,
-            resid_pre=resid_pre,
-            resid_post= resid_post,
-        )
-    
-    @classmethod
-    def standardize_by_pre_sigma(cls,
-                                 resid_pre: np.ndarray,
-                                 resid_post: np.ndarray,
-                                 ddof: int = 1,
-                                 ) -> Tuple[np.ndarray, np.ndarray, float]:
-        """Standardize both with sigma_pre
-        Returns:
-            Tuple[np.ndarray, np.ndarray, float]: pre, post, sigma_pre
-        """
-        
-        pre = np.asarray(resid_pre, dtype=float)
-        post = np.asarray(resid_post, dtype=float)
-        
-        pre = pre[np.isfinite(pre)]
-        post = post[np.isfinite(post)]
-        
-        if pre.size < 5 or post.size < 5:
-            raise ValueError(f"Too few residual samples to standardize")
-        
-        sigma_pre = float(np.std(pre, ddof=int(ddof)))
-        if not np.isfinite(sigma_pre) or sigma_pre <= 0.0:
-            raise ValueError(f"sigma_pre invalid: {sigma_pre}")
-        
-        return pre / sigma_pre, post/ sigma_pre, sigma_pre
-    
-    @staticmethod
-    def check_white_noise(residuals: np.ndarray, lags:int=24, alpha:float=0.05) -> Tuple[bool, float, float, int, float]:
-        """ ljung-box test
-            White noise Test on residuals
-
-        Returns:
-            Tuple[bool, float, int, float]: (is_white_noise, p_val, alpha, lags, test_stat)
-        """
-        results = acorr_ljungbox(residuals, lags=[lags], return_df=True)
-        p_val = results["lb_pvalue"].iloc[0]
-        test_stat = results["lb_stat"].iloc[0]
-        
-        reject_h0 = p_val <= alpha
-        return reject_h0, p_val, alpha, lags, test_stat
-    
-    @classmethod
-    def ks_on_residuals(cls,
-                        pre: np.ndarray,
-                        post: np.ndarray,
-                        method: Literal["auto", "exact", "asymp"] = "exact",
-                        alternative:str = "two-sided",
-                        ) -> Dict[str, Any]:
-        """
-        Returns:
-            Dict[str, Any]: "Ks_D","ks_p","n_pre","n_post","alternative","method"
-        """
-        pre = np.asarray(pre, dtype=float)
-        post = np.asarray(post, dtype=float)
-        
-        pre = pre[np.isfinite(pre)]
-        post = post[np.isfinite(post)]
-        
-        if pre.size ==0 or post.size ==0:
-            raise ValueError("Residual arrays must be non empty.")
-        
-        ks = ks_2samp(pre, post, alternative=alternative, method=method)
-        return {
-            "ks_D": float(ks.statistic),
-            "ks_p": float(ks.pvalue),
-            "n_pre": int(pre.size),
-            "n_post": int(post.size),
-            "alternative": alternative,
-            "method": method,
-        }
-    
-    
-    @classmethod
-    def plot_residual_diagnostics(cls,
-        resid: np.ndarray,
-        lags: int = 24,
-        title: str ="ACF on Residuals - White Noise Check",
-        save_path: Path = Path(ic.PATH_PRINTS) / "resid_diags.png",
-        dpi: int = 300,
-    ):
-        fig, ax = plt.subplots(figsize=(10,5))
-        plot_acf(resid, lags=lags, ax=ax, title=title)
-        ax.set_xlabel("Lag")
-        ax.set_ylabel("Autocorrelation")
-        mh = Line2D([0], [0], marker="o", color="C0", linestyle="", label="Autocorrelation" )
-        ih = mpatches.Patch(color="C0", alpha=0.2, label="Approx. 95% significance bounds (H0: white noise)")
-        ax.legend(handles=[mh, ih], loc="upper right", frameon=True)
-        ax.grid(True, linestyle="--", alpha=0.6)
-        ax.set_ylim(-1.1, 1.1)
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=dpi)
-        plt.show()
-    
-    @staticmethod
-    def _ecdf(x:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        x = np.asarray(x, dtype=float)
-        x = x[np.isfinite(x)]
-        xs = np.sort(x)
-        n = xs.size
-        ys = np.arange(1, n+1, dtype=float) / float(n)
-        return xs, ys
-    
-    @classmethod
-    def plot_ecdf(cls,
-                  pre: np.ndarray,
-                  post:np.ndarray,
-                  title: str= "ECDF pre vs post",
-                  save_path:Path =  Path(ic.PATH_PRINTS) / "ecdf.png",
-                  dpi: int = 300
-                  ):
-        
-        pre = ECDF(pre)
-        post = ECDF(post)
-        
-        fig, ax = plt.subplots(figsize=(10,6))
-        
-        ax.step(pre.x, pre.y, label="Pre", where="post")
-        ax.step(post.x, post.y, label="Post", where="post")
-        
-        ax.set_xlabel("Standardized Residuals")
-        ax.set_ylabel("Cumulative Probability")
-        ax.legend()
-        ax.grid(True, linestyle=":", alpha=0.6)
-        fig.tight_layout
-        fig.savefig(save_path, dpi=dpi)
-        plt.show()
     
     ############
     # Dirty fix
     ###########
     @classmethod
-    def run_prewhitening_ks_pipeline(cls,
+    def get_statistics(cls,
         df: pd.DataFrame,
         col: str,
         ts_det: pd.Timestamp,
         offset: pd.Timedelta,
         ts_col: str = ic.TS_COL,
-        adf_alpha: float = 0.05,
-        adf_regression: Literal["c", "ct", "ctt", "n"] = "c",
-        adf_autolag: Literal["AIC", "BIC", "t-stat", None] = "AIC",
-        max_d: int = 5,
-        p_max: int = 24, # AR order
-        include_const: bool = True,
-        ks_method: Literal["auto", "exact", "asymp"] = "exact",
-        ks_alternative: str = "two-sided",
-        acf_k: int = 24, #max lags,
     ) -> Dict[str, Any]:
-        """ - split pre/post
-            - stationary check + differencing (de-trending)
-            - AR order selection on pre
-            - fit ARIMA(p,0,0) (AR) on pre, then apply on post (decorrelation)
-            - residuals
-            - standardization (on pre, then apply on post)
-            - KS test
-            - ACF diag. on residuals (pre,post)
-
+        """
         Args:
-            df (pd.DataFrame): signals of wt_i
-            col (str): signal col to inspect
-            ts_det (pd.Timestamp): detection time
-            offset (pd.Timedelta): Used to construct windows before and after ts_det
-            ts_col (str, optional): Defaults to ic.TS_COL.
-            adf_alpha (float, optional): Significance level for ADF-Tets. Defaults to 0.05.
-            adf_regression (Literal[&quot;c&quot;, &quot;ct&quot;, &quot;ctt&quot;, &quot;n&quot;], optional): _description_. Defaults to "c".
-            adf_autolag (Literal[&quot;AIC&quot;, &quot;BIC&quot;, &quot;t, optional): _description_. Defaults to "AIC".
-            max_d (int, optional): Max order of differencing. Defaults to 5.
-            p_max (int, optional): Max order for AR(p). Defaults to 24.
-            ks_method (Literal[&quot;auto&quot;, &quot;exact&quot;, &quot;asymp&quot;], optional): Defaults to "exact".
-            ks_alternative (str, optional): Defaults to "two-sided".
-            acf_k (int, optional): Number of lags used for Autocorrelation Diagnostics and Ljung-Box Tets. Defaults to 24.
-            plot (bool, optional):Defaults to False.
-            plot_save_directory (Path, optional): Defaults to Path(ic.PATH_PRINTS).
-            dpi (int, optional): Defaults to 300.
+            df (pd.DataFrame): wt df
+            col (str): specific column
+            ts_det (pd.Timestamp): detection timestamp
+            offset (pd.Timedelta): offset to construct pre and post window around ts_det
+            ts_col (str, optional): Name of the timestamp column. Defaults to ic.TS_COL.
 
         Returns:
-            Dict[str, Any]: _description_
+            Dict[str, Any]: "signal","ts_det","offset", "ic.WT_ID","delta_median","delta_ln_sigma","cliffs_delta"
         """
         wt_id = df[ic.WT_ID].iloc[0]
         pre_raw, post_raw = cls.split_pre_post(df, col=col, ts_det=ts_det, offset=offset, ts_col=ts_col)
@@ -1952,289 +1485,49 @@ class ks_test:
         
         eps = 1e-10
         delta_ln_sigma_raw = float( np.log( np.std(post_raw_arr, ddof=1) / (np.std(pre_raw_arr, ddof=1) + eps) ))
-         
-        # if pre_raw.size < 20 or post_raw.size < 20:
-        #     raise ValueError(f"not enough samples")
-
-        # diff_info = cls.difference_until_stationary(
-        #     pre_raw,
-        #     alpha=adf_alpha,
-        #     regression=adf_regression,
-        #     autolag=adf_autolag,
-        #     max_d=max_d,
-        # )
-        # pre_diff = np.asarray(diff_info["x"], dtype=float)
-        # d = int(diff_info["d"])
-        
-        # post_diff = np.diff(post_raw, n=d) if d > 0 else post_raw
-        # post_diff = np.asarray(post_diff, dtype=float)
-        # post_diff = post_diff[np.isfinite(post_diff)]
-        
-        # if pre_diff.size < 20 or post_diff.size < 20:
-        #     raise ValueError(f"Too few samples after differencing")
-        
-        # order_table = cls.select_ar_order_aic(
-        #     pre_diff,
-        #     p_max=p_max,
-        #     include_const=include_const,
-        # )
-        
-        # p = cls._pick_best_p(order_table)
-        
-        # pw = cls.prewhitening_residuals(
-        #     pre=pre_diff,
-        #     post=post_diff,
-        #     p=p,
-        #     include_const=include_const,
-        # )
-
-        # resid_pre = np.asarray(pw.resid_pre, dtype=float)
-        # resid_post = np.asarray(pw.resid_post, dtype=float)
-        # resid_pre = resid_pre[np.isfinite(resid_pre)]
-        # resid_post = resid_post[np.isfinite(resid_post)]
-        
-        # if resid_pre.size < 40 or resid_post.size < 40: # needed to approx. D_crit (Conover,1999)
-        #     raise ValueError(f"Not enough samples. n_pre={resid_pre.size}, n_post={resid_post.size}")
-        
-        # resid_pre, resid_post, sigma_pre = cls.standardize_by_pre_sigma(resid_pre, resid_post,ddof=1)
-            
-        # wn_res_pre = cls.check_white_noise(resid_pre, lags=acf_k)
-        # wn_res_post = cls.check_white_noise(resid_post, lags=acf_k)
-
-        # ks_res = cls.ks_on_residuals(
-        #     resid_pre,
-        #     resid_post,
-        #     method=ks_method,
-        #     alternative=ks_alternative
-        # )
 
         return {
             "signal": col,
             "ts_det": pd.to_datetime(ts_det),
             "offset": offset,
-            # "n_pre_raw": pre_raw.size,
-            # "n_post_raw": post_raw.size,
-            # "d": d,
-            # "adf": diff_info,
-            # "order_table": order_table,
-            # "p": p,
-            # "include_const": include_const,
-            # "sigma_pre": sigma_pre,
-            # "ks": ks_res,
-            # "pre_diag": wn_res_pre,
-            # "post_diag": wn_res_post,
-            #"pw_results": pw,
-            # "adf_regression": adf_regression,
             ic.WT_ID: wt_id,
             "delta_median": delta_median_raw,
             "delta_ln_sigma": delta_ln_sigma_raw,
             "cliffs_delta": delta_cliffs_raw,
-            # "plot_inputs": {
-            #     "acf_k": int(acf_k),
-            #     "pre_diff": pre_diff,
-            #     "post_diff": post_diff,
-            #     "resid_pre": resid_pre,
-            #     "resid_post": resid_post,
-            # }
         }
     
     @staticmethod
-    def report_total(pipeline_results: Dict[str,Any], alpha: float= 0.05) -> pd.DataFrame:
+    def report_total(pipeline_results: Dict[str,Any]) -> pd.DataFrame:
         """
+        Args:
+            pipeline_results: Obtained from stats.get_statistics
         Returns:
-            pd.DataFrame: "method","alternative","D","D_crit","p_value","alpha","n_pre","n_post":
+            pd.DataFrame: "wt id","ts center","signal", "∆ median (raw)", "∆ ln σ  (raw)", "cliff's delta (raw)" 
         """
-        # def _approx_d_crit(n1, n2, alpha):
-        #     if alpha != 0.05:
-        #         raise ValueError(f"approx. only for alpha=0.05")
-        #     # for alpha=0.05 and n>40 or n1, n2 very large: source table of conover 1980
-        #     # for this setting the approximation is the same (n1!=n2 or n1=n2)
-        #     d_crit = 1.36 * np.sqrt((n1+n2)/(n1*n2))
-        #     return d_crit
-        
-        #signal = pipeline_results["signal"]
-        #D = pipeline_results["ks"]["ks_D"]
-        #p = pipeline_results["ks"]["ks_p"]
-        #alpha = alpha
-        #n_pre = pipeline_results["ks"]["n_pre"]
-        #n_post = pipeline_results["ks"]["n_post"]
-        #D_crit = _approx_d_crit(n_pre, n_post, alpha)
-        #alt = pipeline_results["ks"]["alternative"]
-        #method = pipeline_results["ks"]["method"]
         delta = pipeline_results["cliffs_delta"]
         delta_median = pipeline_results["delta_median"]
         delta_ln_sigma = pipeline_results["delta_ln_sigma"]
-        #diff_order_d = pipeline_results["d"]
-        #reject_h0  = D > D_crit
+        
         return pd.DataFrame([{
             "wt id": pipeline_results[ic.WT_ID],
             "ts center": pipeline_results["ts_det"],
             "signal": pipeline_results["signal"],
-            #"ks test statistic": D,
-            #"applied diff. order d": diff_order_d,
             "∆ median (raw)": delta_median,
             "∆ ln σ  (raw)": delta_ln_sigma,
             "cliff's delta (raw)": delta,
-            #"ks pre resid. samples": n_pre,
-            #"ks post resid. samples": n_post,
         }]).round(3)
     
-    @staticmethod
-    def report_stationarity(pipeline_results: Dict[str, Any], alpha:float=0.05) -> pd.DataFrame:
-        pre_teststatistic = pipeline_results["adf"]["adf_pre"].test_stat
-        pre_pvalue = pipeline_results["adf"]["adf_pre"].p_value
-        pre_lag = pipeline_results["adf"]["adf_pre"].lag
-        pre_nobs = pipeline_results["adf"]["adf_pre"].n_obs
-        pre_is_stationary = pipeline_results["adf"]["stationary_pre"]
-        
-        post_teststatistic = pipeline_results["adf"]["adf_post"].test_stat
-        post_pvalue = pipeline_results["adf"]["adf_post"].p_value
-        post_lag = pipeline_results["adf"]["adf_post"].lag
-        post_nobs = pipeline_results["adf"]["adf_post"].n_obs
-        post_is_stationary = pipeline_results["adf"]["stationary_post"]
-        d = pipeline_results["adf"]["d"]
-        regression_model  = pipeline_results["adf_regression"]
-        test_name="ADF test"
-        
-        
-        
-        return pd.DataFrame([{
-            "wt id": pipeline_results[ic.WT_ID],
-            "detection ts": pipeline_results["ts_det"],
-            "signal": pipeline_results["signal"],
-            
-            "test method": test_name,
-            "regression model": regression_model,
-            "alpha": alpha,
-            "pre test_stat": pre_teststatistic,
-            "pre p value": pre_pvalue,
-            "pre lag": pre_lag,
-            "pre samples": pre_nobs,
-            "reject h0 (before diff.)": pre_is_stationary,
-            
-            "post teststat": post_teststatistic,
-            "post p value": post_pvalue,
-            "post lag": post_lag,
-            "post samples": post_nobs,
-            "reject h0 (after diff.)": post_is_stationary,
-            
-            "d applied to pre and post": d
-        }]).round(3)
-    
-    @staticmethod
-    def report_AR_whitening(pipeline_results: Dict[str,Any]) -> pd.DataFrame:
-        order_table = pipeline_results["order_table"]
-        order = int(pipeline_results["p"])
-        row = order_table[order_table["p"] == order]
-        if row.empty:
-            raise ValueError(f"Selected p={order} not found in order_table")
-        row = row.iloc[0]
-        
-        method = str(row["prefer"]) # AIC or AICc
-        aic_value = row[method]
-        
-        model = "AR(p)"
-        phi = pipeline_results["pw_results"].phi # model params
-        intercept = pipeline_results["pw_results"].intercept # const
-
-        return pd.DataFrame([{
-            "wt id": pipeline_results[ic.WT_ID],
-            "detection ts": pipeline_results["ts_det"],
-            "signal": pipeline_results["signal"],
-            "order selection": method,
-            "value": aic_value,
-            "order p": order,
-            "model": model,
-            "model params.": phi,
-            "intercept": intercept,
-            
-        }]).round(3)
-        
-    @staticmethod
-    def report_standardization(pipeline_results:Dict[str, Any]) -> pd.DataFrame:
-        sig_pre =  pipeline_results["sigma_pre"]
-        
-        return pd.DataFrame([{
-            "wt id": pipeline_results[ic.WT_ID],
-            "detection ts": pipeline_results["ts_det"],
-            "signal": pipeline_results["signal"],
-            "sigma_pre (for pre and post)": sig_pre,
-        }]).round(3)
-    
-    @staticmethod
-    def report_white_noise_before_ks_test(pipeline_results:Dict[str,Any]) -> pd.DataFrame:
-        
-        pre_is_white = pipeline_results["pre_diag"][0]
-        pre_pvalue = pipeline_results["pre_diag"][1]
-        
-        post_is_white = pipeline_results["post_diag"][0]
-        post_pvalue = pipeline_results["post_diag"][1]
-        pre_post_alpha = pipeline_results["pre_diag"][2]
-        pre_post_lags = pipeline_results["pre_diag"][3]
-        pre_test_stat = pipeline_results["pre_diag"][4]
-        post_test_stat = pipeline_results["post_diag"][4]
-        test_name = "Ljung-Box-Test"
-        return pd.DataFrame([{
-            "wt id": pipeline_results[ic.WT_ID],
-            "detection ts": pipeline_results["ts_det"],
-            "signal": pipeline_results["signal"],
-            "test method": test_name,
-            "pre reject h0": pre_is_white,
-            "pre test stat.": pre_test_stat,
-            "pre p value": pre_pvalue,
-            
-            "post reject h0": post_is_white,
-            "post test stat.": post_test_stat,
-            "post p value": post_pvalue,
-            
-            "alpha": pre_post_alpha,
-            "lags": pre_post_lags,
-        }]).round(3)
-    
-    @staticmethod
-    def report_windows(pipeline_results: Dict[str, Any]) -> pd.DataFrame:
-        ts_det = pd.to_datetime(pipeline_results["ts_det"])
-        offset = pd.to_timedelta(pipeline_results["offset"])
-        dt = pd.Timedelta(minutes=10)
-        pre_start = ts_det - offset
-        pre_end = ts_det
-        pre_n_samples = pipeline_results["n_pre_raw"]
-        
-        post_start = ts_det + dt
-        post_end = (ts_det + dt) + offset
-        post_n_samples = pipeline_results["n_post_raw"]
-        signal = pipeline_results["signal"]
-        wt_id = pipeline_results[ic.WT_ID]
-        
-        return pd.DataFrame([{
-            "wt_id": wt_id,
-            "signal": signal,
-            "detection ts": pipeline_results["ts_det"],
-            
-            "pre start": pre_start,
-            "pre end": pre_end,
-            "pre samples": pre_n_samples,
-            "post start": post_start,
-            "post end": post_end,
-            "post samples": post_n_samples 
-        }]).round(3)
     
     #helpers
-    def report_total_many(results: list[dict], alpha: float= 0.05) -> pd.DataFrame:
-        return pd.concat([ks_test.report_total(r, alpha=alpha) for r in results], ignore_index=True)
-    
-    def report_stationarity_many(results: list[dict], alpha: float= 0.05) -> pd.DataFrame:
-        return pd.concat([ks_test.report_stationarity(r, alpha=alpha) for r in results], ignore_index=True)
-    
-    def report_ar_many(results: list[dict]) -> pd.DataFrame:
-        return pd.concat([ks_test.report_AR_whitening(r) for r in results], ignore_index=True)
-    
-    def report_std_many(results: list[dict]) -> pd.DataFrame:
-        return pd.concat([ks_test.report_standardization(r) for r in results], ignore_index=True)
-    
-    def report_lb_many(results: list[dict]) -> pd.DataFrame:
-        return pd.concat([ks_test.report_white_noise_before_ks_test(r) for r in results], ignore_index=True)
-    
-    def report_windows_many(results: list[dict]) -> pd.DataFrame:
-        return pd.concat([ks_test.report_windows(r) for r in results], ignore_index=True)
+    def report_total_many(results: list[dict]) -> pd.DataFrame:
+        """
+        Used for parallel processing
+
+        Args:
+            results (list[dict]): obtained from stats.get_statistics
+
+        Returns:
+            pd.DataFrame
+        """
+        return pd.concat([stats.report_total(r) for r in results], ignore_index=True)
     

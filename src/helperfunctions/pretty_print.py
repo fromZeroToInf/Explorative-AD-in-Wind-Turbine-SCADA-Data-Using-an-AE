@@ -966,7 +966,7 @@ class PrettyPrint():
                 ]
             if not df_high.empty:
                 t = pd.to_datetime(df_high[ic.TS_COL])
-                t_num = t.view("int64").to_numpy()
+                t_num = t.astype("int64").to_numpy()
                 
                 if highlight_ts_range is not None:
                     h_start, h_end = highlight_ts_range
