@@ -9,7 +9,7 @@ dependencies = [
     "joblib==1.4.2",
     "matplotlib==3.10.8",
     "numpy==2.4.4",
-    "pandas==3.0.2",
+    "pandas==2.3.1",
     "pyarrow==21.0.0",
     "requests==2.33.1",
     "scikit-learn==1.8.0",
@@ -22,15 +22,12 @@ dependencies = [
     "ipympl==0.9.8",
     "ipywidgets==8.1.5",
     "jupyter",
+    "ipykernel>=7.2.0",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
 license = {text = "MIT"}
 
-
-[tool.pdm]
-distribution = false
-packages = "find:"
 
 [build-system]
 requires = ["pdm-backend"]
@@ -42,3 +39,12 @@ package_dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["helperfunctions*"]
+[tool.pdm]
+distribution = false
+packages = "find:"
+
+
+[dependency-groups]
+notebook = [
+    "ipykernel>=7.2.0",
+]
